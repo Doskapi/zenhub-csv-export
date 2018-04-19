@@ -5,6 +5,9 @@ import requests
 import datetime
 from datetime import datetime
 import re
+import ConfigParser
+from ast import literal_eval as make_tuple
+
 
 """
 Exports Issues from a list of repositories to individual CSV files
@@ -13,6 +16,25 @@ to retrieve Issues from a repository that token has access to.
 Supports Github API v3 and ZenHubs current working API.
 Derived from https://gist.github.com/Kebiled/7b035d7518fdfd50d07e2a285aff3977
 """
+
+CONFIGFILE = 'config'
+PAYLOAD = ""
+# all repos
+# ('username/reponame', zenhubID )  get the zenhub id from the url
+REPO_LIST = ''
+
+# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+AUTH_TOKEN_GITHUB = ('token', 'REPLACE WITH YOUR TOKEN')
+
+# https://github.com/ZenHubIO/API#authentication
+ACCESS_TOKEN_ZENHUB = '?access_token=<Zenhub TOKEN>'
+
+ISSUES = 0
+
+FILENAME = 'output.csv'
+OPENFILE = open(FILENAME, 'wb')
+FILEOUTPUT = csv.writer(OPENFILE)
+
 
 def write_issues(r, csvout, repo_name, repo_ID):
     if not r.status_code == 200:
@@ -52,8 +74,7 @@ def write_issues(r, csvout, repo_name, repo_ID):
             #     if "Priority" in x['name']:
             #         sPriority = x['name']
             estimacion = zen_r.get('estimate', dict()).get('value', "")
-            estado    = zen_r.get('pipeline', dict()).get('name', "" )
-
+            estado = zen_r.get('pipeline', dict()).get('name', "")
 
             # Horas trabajadas: <hours>5</hours>
             # Horas trabajadas: <hours>5</hours>
@@ -86,6 +107,7 @@ def getRepoName(repo):
         'guillerecalde/tdp2-angular': 'Backoffice',
     }.get(repo, '')
 
+
 def getDate(date):
     if date:
         # format: 2018-04-16T23:33:47Z
@@ -93,16 +115,20 @@ def getDate(date):
         return d.strftime('%Y-%m-%d')
     return ''
 
+
 def getWorkingHours(issue_body):
     hours = re.search("<hours>(.+?)</hours>", issue_body)
     if hours:
         return hours.group(1)
     return ''
 
+
 def get_issues(repo_data):
     repo_name = repo_data[0]
     repo_ID = repo_data[1]
     # all issues
+    print 3
+
     issues_for_repo_url = 'https://api.github.com/repos/%s/issues?state=all' % repo_name
     # open issues
     # issues_for_repo_url = 'https://api.github.com/repos/%s/issues' % repo_name
@@ -127,49 +153,40 @@ def get_issues(repo_data):
     FILEOUTPUT.writerow(['Total', ISSUES])
 
 
+def parseConfigs():
+    config = ConfigParser.ConfigParser()
+    config.readfp(open(CONFIGFILE))
+    AUTH_TOKEN_GITHUB = config.get('apiTokens', 'AUTH_TOKEN_GITHUB')
+    ACCESS_TOKEN_ZENHUB = '?access_token=' + config.get('apiTokens', 'ACCESS_TOKEN_ZENHUB')
+    REPO_LIST = config.items('repos')
+    FILENAME = config.get('filename', 'FILENAME')
 
 
-PAYLOAD = ""
-# all repos
-# ('username/reponame', zenhubID )  get the zenhub id from the url
-REPO_LIST = [("Doskapi/Tdp2-Android", "125941072"), ("Doskapi/Tdp2-Node", "125941349"), ("guillerecalde/tdp2-angular", "127685368")]
+if __name__ == '__main__':
+    parseConfigs()
 
-# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
-AUTH_TOKEN_GITHUB = ('token', 'REPLACE WITH YOUR TOKEN')
-
-# https://github.com/ZenHubIO/API#authentication
-ACCESS_TOKEN_ZENHUB = '?access_token=<Zenhub TOKEN>'
-
-ISSUES = 0
-
-FILENAME = 'output.csv'
-OPENFILE = open(FILENAME, 'wb')
-FILEOUTPUT = csv.writer(OPENFILE)
-
-# define header of the csv
-FILEOUTPUT.writerow((
-         'Categoria',
-         'Issue',
-         'Funcionalidad',
-         'Iteracion',
-         'Estado',
-         'Fecha de Finalizacion',
-         'Estimacion',
-         'Horas Tabajadas',
-         'Tag',
-         'Priority',
-         'Pipeline',
-         'Issue Author',
-         'Created At',
-         'Milestone',
-         'Assigned To',
-         'Issue Content',
-         'Estimate Value'))
-
-
-for repo_data in REPO_LIST:
-    get_issues(repo_data)
-OPENFILE.close()
-
-
-
+    # define header of the csv
+    FILEOUTPUT.writerow((
+        'Categoria',
+        'Issue',
+        'Funcionalidad',
+        'Iteracion',
+        'Estado',
+        'Fecha de Finalizacion',
+        'Estimacion',
+        'Horas Tabajadas',
+        'Tag',
+        'Priority',
+        'Pipeline',
+        'Issue Author',
+        'Created At',
+        'Milestone',
+        'Assigned To',
+        'Issue Content',
+        'Estimate Value'))
+    print REPO_LIST[0]
+    for repo_data in REPO_LIST:
+        print repo_data[0]
+        get_issues(repo_data)
+    OPENFILE.close()
+    print 1

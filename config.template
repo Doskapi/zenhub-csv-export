@@ -1,0 +1,10 @@
+[apiTokens]
+AUTH_TOKEN_GITHUB: your token hash
+ACCESS_TOKEN_ZENHUB: your token hash
+
+[repos]
+username/reponame: zenhubID
+username/reponame: zenhubID
+
+[filename]
+FILENAME: output.csv
