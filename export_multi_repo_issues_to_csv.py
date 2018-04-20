@@ -17,26 +17,24 @@ Supports Github API v3 and ZenHubs current working API.
 Derived from https://gist.github.com/Kebiled/7b035d7518fdfd50d07e2a285aff3977
 """
 
-CONFIGFILE = 'config'
-PAYLOAD = ""
-# all repos
-# ('username/reponame', zenhubID )  get the zenhub id from the url
-REPO_LIST = ''
-
-# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
-AUTH_TOKEN_GITHUB = ('token', 'REPLACE WITH YOUR TOKEN')
-
-# https://github.com/ZenHubIO/API#authentication
-ACCESS_TOKEN_ZENHUB = '?access_token=<Zenhub TOKEN>'
-
-ISSUES = 0
-
-FILENAME = 'output.csv'
-OPENFILE = open(FILENAME, 'wb')
-FILEOUTPUT = csv.writer(OPENFILE)
+CONFIG = {
+    'CONFIGFILE': 'config',
+    'PAYLOAD': '',
+    # ('username/reponame', zenhubID )  get the zenhub id from the url
+    'REPO_LIST': '',
+    # https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+    'AUTH_TOKEN_GITHUB': ('token', 'REPLACE WITH YOUR TOKEN'),
+    # https://github.com/ZenHubIO/API#authentication
+    'ACCESS_TOKEN_ZENHUB': '?access_token=<Zenhub TOKEN>',
+    'ISSUES': 0,
+    'FILENAME': 'output.csv'
+}
 
 
-def write_issues(r, csvout, repo_name, repo_ID):
+
+
+
+def write_issues(r, csvout, repo_name, repo_ID, config):
     if not r.status_code == 200:
         raise Exception(r.status_code)
 
@@ -47,14 +45,13 @@ def write_issues(r, csvout, repo_name, repo_ID):
     for issue in r_json:
         print repo_name + ' issue Number: ' + str(issue['number'])
         zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
-            str(repo_ID) + '/issues/' + str(issue['number']) + ACCESS_TOKEN
+            str(repo_ID) + '/issues/' + str(issue['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
         zen_r = requests.get(zenhub_issue_url).json()
         global Payload
         print(json.dumps(zen_r, indent=2))
 
         if 'pull_request' not in issue:
-            global ISSUES
-            ISSUES += 1
+            config['ISSUES'] += 1
             sAssigneeList = ''
             labels = ''
             sCategory = ''
@@ -97,7 +94,7 @@ def write_issues(r, csvout, repo_name, repo_ID):
                              # issue['body'].encode('utf-8'),
                              ])
         else:
-            print 'You have skipped %s Pull Requests' % ISSUES
+            print 'You have skipped %s Pull Requests' % config['ISSUES']
 
 
 def getRepoName(repo):
@@ -123,17 +120,16 @@ def getWorkingHours(issue_body):
     return ''
 
 
-def get_issues(repo_data):
+def get_issues(repo_data, config):
     repo_name = repo_data[0]
     repo_ID = repo_data[1]
-    # all issues
-    print 3
 
+    # all issues
     issues_for_repo_url = 'https://api.github.com/repos/%s/issues?state=all' % repo_name
     # open issues
     # issues_for_repo_url = 'https://api.github.com/repos/%s/issues' % repo_name
-    r = requests.get(issues_for_repo_url, auth=AUTH_TOKEN_GITHUB)
-    write_issues(r, FILEOUTPUT, repo_name, repo_ID)
+    r = requests.get(issues_for_repo_url, auth=config['AUTH_TOKEN_GITHUB'])
+    write_issues(r, config['FILEWRITER'], repo_name, repo_ID, config)
     # more pages? examine the 'link' header returned
     if 'link' in r.headers:
         pages = dict(
@@ -145,28 +141,30 @@ def get_issues(repo_data):
                 [(rel[6:-1], url[url.index('<') + 1:-1]) for url, rel in
                  [link.split(';') for link in
                   r.headers['link'].split(',')]])
-            r = requests.get(pages['next'], auth=AUTH_TOKEN_GITHUB)
-            write_issues(r, FILEOUTPUT, repo_name, repo_ID)
+            r = requests.get(pages['next'], auth=config['AUTH_TOKEN_GITHUB'])
+            write_issues(r, config['FILEWRITER'], repo_name, repo_ID, config)
             if pages['next'] == pages['last']:
                 break
 
-    FILEOUTPUT.writerow(['Total', ISSUES])
-
+    config['FILEWRITER'].writerow(['Total', config['ISSUES']])
 
 def parseConfigs():
-    config = ConfigParser.ConfigParser()
-    config.readfp(open(CONFIGFILE))
-    AUTH_TOKEN_GITHUB = config.get('apiTokens', 'AUTH_TOKEN_GITHUB')
-    ACCESS_TOKEN_ZENHUB = '?access_token=' + config.get('apiTokens', 'ACCESS_TOKEN_ZENHUB')
-    REPO_LIST = config.items('repos')
-    FILENAME = config.get('filename', 'FILENAME')
-
+    configParser = ConfigParser.ConfigParser()
+    configParser.readfp(open(CONFIG['CONFIGFILE']))
+    CONFIG['AUTH_TOKEN_GITHUB'] = ('token', configParser.get('apiTokens', 'AUTH_TOKEN_GITHUB'))
+    CONFIG['ACCESS_TOKEN_ZENHUB'] = configParser.get('apiTokens', 'ACCESS_TOKEN_ZENHUB')
+    CONFIG['FILENAME'] = configParser.get('filename', 'FILENAME')
+    repos = configParser.items('repos')
+    CONFIG['REPO_LIST'] = []
+    for x in repos:
+        CONFIG['REPO_LIST'].append((x[1].split(',')[0],x[1].split(',')[1]))
 
 if __name__ == '__main__':
     parseConfigs()
-
+        CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
+    CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
     # define header of the csv
-    FILEOUTPUT.writerow((
+    CONFIG['FILEWRITER'].writerow((
         'Categoria',
         'Issue',
         'Funcionalidad',
@@ -184,9 +182,8 @@ if __name__ == '__main__':
         'Assigned To',
         'Issue Content',
         'Estimate Value'))
-    print REPO_LIST[0]
-    for repo_data in REPO_LIST:
-        print repo_data[0]
-        get_issues(repo_data)
+
+    for repo_data in CONFIG['REPO_LIST']:
+        get_issues(repo_data , CONFIG)
     OPENFILE.close()
     print 1

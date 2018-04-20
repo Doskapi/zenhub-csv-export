@@ -3,8 +3,8 @@ AUTH_TOKEN_GITHUB: your token hash
 ACCESS_TOKEN_ZENHUB: your token hash
 
 [repos]
-username/reponame: zenhubID
-username/reponame: zenhubID
+repo1: username/reponame,zenhubID
+repo2: username/reponame,zenhubID
 
 [filename]
 FILENAME: output.csv
