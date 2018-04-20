@@ -31,70 +31,86 @@ CONFIG = {
 }
 
 
+def get_epic_ids(repo_ID, config):
+    zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
+            str(repo_ID) + '/epics?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
+    zen_r = requests.get(zenhub_issue_url).json()
+    epicsIds = []
+    for epic in zen_r["epic_issues"]:
+        epicsIds.append(epic["issue_number"])
+    return epicsIds
 
 
+def get_epic_related_ids(repo_ID, epic_ID, config):
+    zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
+            str(repo_ID) + '/epics/' + str(epic_ID) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
+    zen_r = requests.get(zenhub_issue_url).json()
+    ids = []
+    for related_issue in zen_r["issues"]:
+        if (str(related_issue["repo_id"]) == str(repo_ID)):
+            ids.append(related_issue["issue_number"])
+    return ids
 
-def write_issues(r, csvout, repo_name, repo_ID, config):
-    if not r.status_code == 200:
-        raise Exception(r.status_code)
 
-    r_json = r.json()
-    # print r_json
-    print(json.dumps(r_json, indent=2))
+def write_issue(r_json, csvout, repo_name, repo_ID, config):
+    print repo_name + ' issue Number: ' + str(r_json['number'])
+    zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
+        str(repo_ID) + '/issues/' + str(r_json['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
+    zen_r = requests.get(zenhub_issue_url).json()
+    if 'pull_request' not in r_json:
+        config['ISSUES'] += 1
+        sAssigneeList = ''
+        labels = ''
+        sCategory = ''
+        sPriority = ''
 
+        for i in r_json['assignees'] if r_json['assignees'] else []:
+            sAssigneeList += i['login'] + ','
+
+        for x in r_json['labels'] if r_json['labels'] else []:
+            labels += x['name'] + ','
+
+
+        # for x in r_json['labels'] if r_json['labels'] else []:
+        #     if "Category" in x['name']:
+        #         sCategory = x['name']
+        #     if "Tag" in x['name']:
+        #         Labels = x['name']
+        #     if "Priority" in x['name']:
+        #         sPriority = x['name']
+        estimacion = zen_r.get('estimate', dict()).get('value', "")
+        estado = zen_r.get('pipeline', dict()).get('name', "")
+
+        csvout.writerow([getRepoName(repo_name),
+                         r_json['number'],
+                         r_json['title'].encode('utf-8'),
+                         r_json['body'].encode('utf-8'),
+                         labels[:-1],
+                         r_json['milestone']['title'] if r_json['milestone'] else "",
+                         estado,
+                         getDate(r_json['closed_at']),
+                         estimacion,
+                         getWorkingHours(r_json['body'])
+                         # sCategory,
+                         # sPriority,
+                         # r_json['user']['login'],
+                         # r_json['created_at'],
+                         # sAssigneeList[:-1],
+                         ])
+    else:
+        print 'You have skipped %s Pull Requests' % config['ISSUES']
+
+
+def write_all_issues(r_json, csvout, repo_name, repo_ID, config):
     for issue in r_json:
-        print repo_name + ' issue Number: ' + str(issue['number'])
-        zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
-            str(repo_ID) + '/issues/' + str(issue['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
-        zen_r = requests.get(zenhub_issue_url).json()
-        global Payload
-        print(json.dumps(zen_r, indent=2))
+        write_issue(issue, csvout, repo_name, repo_ID, config)
 
-        if 'pull_request' not in issue:
-            config['ISSUES'] += 1
-            sAssigneeList = ''
-            labels = ''
-            sCategory = ''
-            sPriority = ''
 
-            for i in issue['assignees'] if issue['assignees'] else []:
-                sAssigneeList += i['login'] + ','
-
-            for x in issue['labels'] if issue['labels'] else []:
-                labels += x['name'] + ','
-
-            # for x in issue['labels'] if issue['labels'] else []:
-            #     if "Category" in x['name']:
-            #         sCategory = x['name']
-            #     if "Tag" in x['name']:
-            #         Labels = x['name']
-            #     if "Priority" in x['name']:
-            #         sPriority = x['name']
-            estimacion = zen_r.get('estimate', dict()).get('value', "")
-            estado = zen_r.get('pipeline', dict()).get('name', "")
-
-            # Horas trabajadas: <hours>5</hours>
-            # Horas trabajadas: <hours>5</hours>
-            # Horas trabajadas: <hours>5</hours>
-            print issue['closed_at']
-            csvout.writerow([getRepoName(repo_name),
-                             issue['number'],
-                             issue['title'].encode('utf-8'),
-                             issue['milestone']['title'] if issue['milestone'] else "",
-                             estado,
-                             getDate(issue['closed_at']),
-                             estimacion,
-                             getWorkingHours(issue['body'])
-                             # sCategory,
-                             # labels[:-1],
-                             # sPriority,
-                             # issue['user']['login'],
-                             # issue['created_at'],
-                             # sAssigneeList[:-1],
-                             # issue['body'].encode('utf-8'),
-                             ])
-        else:
-            print 'You have skipped %s Pull Requests' % config['ISSUES']
+def write_issues(r_json, csvout, repo_name, repo_ID, config):
+    if isinstance(r_json, list):
+        write_all_issues(r_json, csvout, repo_name, repo_ID, config)
+    else:
+        write_issue(r_json, csvout, repo_name, repo_ID, config)
 
 
 def getRepoName(repo):
@@ -120,33 +136,24 @@ def getWorkingHours(issue_body):
     return ''
 
 
-def get_issues(repo_data, config):
-    repo_name = repo_data[0]
-    repo_ID = repo_data[1]
+def get_issues(repo_name, repo_zenhub_id, epicsIds, config):
+    for epic in epicsIds:
+        epic_issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(epic)
+        r_epic = requests.get(epic_issue_url, auth=config['AUTH_TOKEN_GITHUB'])
+        if not r_epic.status_code == 200:
+            raise Exception(r_epic.status_code)
+        # print(json.dumps(r_epic.json(), indent=2))
+        write_issues(r_epic.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
 
-    # all issues
-    issues_for_repo_url = 'https://api.github.com/repos/%s/issues?state=all' % repo_name
-    # open issues
-    # issues_for_repo_url = 'https://api.github.com/repos/%s/issues' % repo_name
-    r = requests.get(issues_for_repo_url, auth=config['AUTH_TOKEN_GITHUB'])
-    write_issues(r, config['FILEWRITER'], repo_name, repo_ID, config)
-    # more pages? examine the 'link' header returned
-    if 'link' in r.headers:
-        pages = dict(
-            [(rel[6:-1], url[url.index('<') + 1:-1]) for url, rel in
-             [link.split(';') for link in
-              r.headers['link'].split(',')]])
-        while 'last' in pages and 'next' in pages:
-            pages = dict(
-                [(rel[6:-1], url[url.index('<') + 1:-1]) for url, rel in
-                 [link.split(';') for link in
-                  r.headers['link'].split(',')]])
-            r = requests.get(pages['next'], auth=config['AUTH_TOKEN_GITHUB'])
-            write_issues(r, config['FILEWRITER'], repo_name, repo_ID, config)
-            if pages['next'] == pages['last']:
-                break
+        related_issues = get_epic_related_ids(repo_zenhub_id, epic, config)
 
-    config['FILEWRITER'].writerow(['Total', config['ISSUES']])
+        for issue in related_issues:
+            issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(issue)
+            r_issue = requests.get(issue_url, auth=config['AUTH_TOKEN_GITHUB'])
+            if not r_issue.status_code == 200:
+                raise Exception(r_issue.status_code)
+            write_issues(r_issue.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
+
 
 def parseConfigs():
     configParser = ConfigParser.ConfigParser()
@@ -159,6 +166,7 @@ def parseConfigs():
     for x in repos:
         CONFIG['REPO_LIST'].append((x[1].split(',')[0],x[1].split(',')[1]))
 
+
 if __name__ == '__main__':
     parseConfigs()
     CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
@@ -168,6 +176,8 @@ if __name__ == '__main__':
         'Categoria',
         'Issue',
         'Funcionalidad',
+        'Descriocion',
+        'Labels',
         'Iteracion',
         'Estado',
         'Fecha de Finalizacion',
@@ -184,6 +194,7 @@ if __name__ == '__main__':
         'Estimate Value'))
 
     for repo_data in CONFIG['REPO_LIST']:
-        get_issues(repo_data , CONFIG)
-    OPENFILE.close()
-    print 1
+        epicIds = get_epic_ids(repo_data[1], CONFIG)
+        get_issues(repo_data[0], repo_data[1], epicIds, CONFIG)
+
+    CONFIG['OPENFILE'].close()
