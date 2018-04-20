@@ -161,7 +161,7 @@ def parseConfigs():
 
 if __name__ == '__main__':
     parseConfigs()
-        CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
+    CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
     CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
     # define header of the csv
     CONFIG['FILEWRITER'].writerow((
