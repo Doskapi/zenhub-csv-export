@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# coding: utf-8
+
 import csv
 import json
 import requests
@@ -61,41 +63,34 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
         config['ISSUES'] += 1
         sAssigneeList = ''
         labels = ''
-        sCategory = ''
-        sPriority = ''
+        is_epic = ''
 
         for i in r_json['assignees'] if r_json['assignees'] else []:
             sAssigneeList += i['login'] + ','
 
         for x in r_json['labels'] if r_json['labels'] else []:
             labels += x['name'] + ','
+            if ('Epic' == x['name']):
+                is_epic = x['name']
 
-
-        # for x in r_json['labels'] if r_json['labels'] else []:
-        #     if "Category" in x['name']:
-        #         sCategory = x['name']
-        #     if "Tag" in x['name']:
-        #         Labels = x['name']
-        #     if "Priority" in x['name']:
-        #         sPriority = x['name']
         estimacion = zen_r.get('estimate', dict()).get('value', "")
         estado = zen_r.get('pipeline', dict()).get('name', "")
 
-        csvout.writerow([getRepoName(repo_name),
-                         r_json['number'],
+        csvout.writerow([
+                         getId(repo_name, r_json['number']),
+                         getRepoName(repo_name),
                          r_json['title'].encode('utf-8'),
-                         r_json['body'].encode('utf-8'),
+                         getBody(r_json['body'].encode('utf-8')),
+                         is_epic,
                          labels[:-1],
                          r_json['milestone']['title'] if r_json['milestone'] else "",
+                         getPriority(r_json['body']),
                          estado,
                          getDate(r_json['closed_at']),
                          estimacion,
-                         getWorkingHours(r_json['body'])
-                         # sCategory,
-                         # sPriority,
-                         # r_json['user']['login'],
-                         # r_json['created_at'],
-                         # sAssigneeList[:-1],
+                         getWorkingHours(r_json['body']),
+                         getPrototype(r_json['body']),
+                         getUseCase(r_json['body']),
                          ])
     else:
         print 'You have skipped %s Pull Requests' % config['ISSUES']
@@ -121,6 +116,14 @@ def getRepoName(repo):
     }.get(repo, '')
 
 
+def getId(repo, issue_id):
+    return {
+        'Doskapi/Tdp2-Android': 'A',
+        'Doskapi/Tdp2-Node': 'N',
+        'guillerecalde/tdp2-angular': 'B',
+    }.get(repo, '') + str(issue_id)
+
+
 def getDate(date):
     if date:
         # format: 2018-04-16T23:33:47Z
@@ -129,10 +132,41 @@ def getDate(date):
     return ''
 
 
+def getBody(issue_body):
+    return issue_body.partition('<metadata>')[0]
+
+# <metadata>
+# Horas trabajadas: <hours>NUMERO</hours>
+# Prioridad: <priority>NUMERO</priority>
+# Prototipo: <prototype>LINK</prototype>
+# Casos de Uso: <usecases>NUMERO CASOS DE USO</usecases>
+# </metadata>
+
 def getWorkingHours(issue_body):
-    hours = re.search("<hours>(.+?)</hours>", issue_body)
-    if hours:
-        return hours.group(1)
+    data = re.search("<hours>(.*?)</hours>", issue_body)
+    if data:
+        return data.group(1)
+    return ''
+
+
+def getPriority(issue_body):
+    data = re.search("<priority>(.*?)</priority>", issue_body)
+    if data:
+        return data.group(1)
+    return ''
+
+
+def getPrototype(issue_body):
+    data = re.search("<prototype>(.*?)</prototype>", issue_body)
+    if data:
+        return data.group(1)
+    return ''
+
+
+def getUseCase(issue_body):
+    data = re.search("<usecases>(.*?)</usecases>", issue_body)
+    if data:
+        return data.group(1)
     return ''
 
 
@@ -146,6 +180,7 @@ def get_issues(repo_name, repo_zenhub_id, epicsIds, config):
         write_issues(r_epic.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
 
         related_issues = get_epic_related_ids(repo_zenhub_id, epic, config)
+        # print(json.dumps(r_epic.json(), indent=2))
 
         for issue in related_issues:
             issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(issue)
@@ -167,34 +202,37 @@ def parseConfigs():
         CONFIG['REPO_LIST'].append((x[1].split(',')[0],x[1].split(',')[1]))
 
 
-if __name__ == '__main__':
-    parseConfigs()
+def createFile():
     CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
     CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
     # define header of the csv
     CONFIG['FILEWRITER'].writerow((
+        'Id',
         'Categoria',
-        'Issue',
         'Funcionalidad',
-        'Descriocion',
+        'Descripcion',
+        'Epic?',
         'Labels',
         'Iteracion',
+        'Prioridad',
         'Estado',
         'Fecha de Finalizacion',
         'Estimacion',
         'Horas Tabajadas',
-        'Tag',
-        'Priority',
-        'Pipeline',
-        'Issue Author',
-        'Created At',
-        'Milestone',
-        'Assigned To',
-        'Issue Content',
-        'Estimate Value'))
+        'Prototipo',
+        'User Stories',
+        ))
 
+
+def closeFile():
+    CONFIG['OPENFILE'].close()
+
+
+if __name__ == '__main__':
+    parseConfigs()
+    createFile()
     for repo_data in CONFIG['REPO_LIST']:
         epicIds = get_epic_ids(repo_data[1], CONFIG)
         get_issues(repo_data[0], repo_data[1], epicIds, CONFIG)
+    closeFile()
 
-    CONFIG['OPENFILE'].close()
