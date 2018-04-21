@@ -55,23 +55,28 @@ def get_epic_related_ids(repo_ID, epic_ID, config):
 
 
 def write_issue(r_json, csvout, repo_name, repo_ID, config):
-    print repo_name + ' issue Number: ' + str(r_json['number'])
+
+    labels = ''
+    is_epic = ''
+    for x in r_json['labels'] if r_json['labels'] else []:
+        labels += x['name'] + ','
+        if ('Epic' == x['name']):
+            is_epic = x['name']
+
+    if (is_epic != ''):
+        print repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic"
+    else:
+        print repo_name + ' issue Number: ' + str(r_json['number'])
+
     zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
         str(repo_ID) + '/issues/' + str(r_json['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
     zen_r = requests.get(zenhub_issue_url).json()
     if 'pull_request' not in r_json:
         config['ISSUES'] += 1
         sAssigneeList = ''
-        labels = ''
-        is_epic = ''
 
         for i in r_json['assignees'] if r_json['assignees'] else []:
             sAssigneeList += i['login'] + ','
-
-        for x in r_json['labels'] if r_json['labels'] else []:
-            labels += x['name'] + ','
-            if ('Epic' == x['name']):
-                is_epic = x['name']
 
         estimacion = zen_r.get('estimate', dict()).get('value', "")
         estado = zen_r.get('pipeline', dict()).get('name', "")
