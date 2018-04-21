@@ -1,10 +1,19 @@
+# Get your api tokens
+# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+# https://github.com/ZenHubIO/API#authentication
 [apiTokens]
 AUTH_TOKEN_GITHUB: your token hash
 ACCESS_TOKEN_ZENHUB: your token hash
 
-[repos]
-repo1: username/reponame,zenhubID
-repo2: username/reponame,zenhubID
 
+# Change the firt label before the :, all of them must be diferents
+# repoX: username/reponame,zenhubID
+[repos]
+repo1: Doskapi/Tdp2-Android,125941072
+repo2: Doskapi/Tdp2-Node,125941349
+repo3: guillerecalde/tdp2-angular,127685368
+
+
+# output Filename
 [filename]
 FILENAME: output.csv
