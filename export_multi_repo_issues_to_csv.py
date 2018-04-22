@@ -49,7 +49,7 @@ def get_epic_related_ids(repo_ID, epic_ID, config):
     zen_r = requests.get(zenhub_issue_url).json()
     ids = []
     for related_issue in zen_r["issues"]:
-        if (str(related_issue["repo_id"]) == str(repo_ID)):
+        if str(related_issue["repo_id"]) == str(repo_ID):
             ids.append(related_issue["issue_number"])
     return ids
 
@@ -60,10 +60,10 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
     is_epic = ''
     for x in r_json['labels'] if r_json['labels'] else []:
         labels += x['name'] + ','
-        if ('Epic' == x['name']):
+        if 'Epic' == x['name']:
             is_epic = x['name']
 
-    if (is_epic != ''):
+    if is_epic != '':
         print repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic"
     else:
         print repo_name + ' issue Number: ' + str(r_json['number'])
@@ -71,15 +71,13 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
     zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
         str(repo_ID) + '/issues/' + str(r_json['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
     zen_r = requests.get(zenhub_issue_url).json()
+
     if 'pull_request' not in r_json:
         config['ISSUES'] += 1
-        sAssigneeList = ''
-
-        for i in r_json['assignees'] if r_json['assignees'] else []:
-            sAssigneeList += i['login'] + ','
-
         estimacion = zen_r.get('estimate', dict()).get('value', "")
         estado = zen_r.get('pipeline', dict()).get('name', "")
+
+        assignee_hours = getAssignieHours(r_json)
 
         csvout.writerow([
                          getId(repo_name, r_json['number']),
@@ -93,6 +91,10 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          estado,
                          getDate(r_json['closed_at']),
                          estimacion,
+                         assignee_hours['juanmafc'] if 'juanmafc' in assignee_hours else "",
+                         assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
+                         assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
+                         assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
                          getWorkingHours(r_json['body']),
                          getPrototype(r_json['body']),
                          getUseCase(r_json['body']),
@@ -120,6 +122,11 @@ def getRepoName(repo):
         'guillerecalde/tdp2-angular': 'Backoffice',
     }.get(repo, '')
 
+def get_assignees_concatenated(assignees):
+    sAssigneeList = ''
+    for i in assignees if assignees else []:
+        sAssigneeList += i['login'] + ','
+    return sAssigneeList
 
 def getId(repo, issue_id):
     return {
@@ -136,19 +143,35 @@ def getDate(date):
         return d.strftime('%Y-%m-%d')
     return ''
 
+def getAssignieHours(r_json):
+    assigneeList = {}
+    for i in r_json['assignees'] if r_json['assignees'] else []:
+        assigneeList[i['login']] = getWorkingHoursUsername(r_json['body'], i['login'])
+    userHours = getWorkingHours(r_json['body'])
+    if userHours != '' and len(r_json['assignees']) == 1:
+        assigneeList[r_json['assignee']['login']] = userHours
+    return assigneeList
 
 def getBody(issue_body):
     return issue_body.partition('<metadata>')[0]
-
+#
 # <metadata>
 # Horas trabajadas: <hours>NUMERO</hours>
+# Horas USERNAME: <hoursUSERNAME>NUMERO</hoursUSERNAME>
 # Prioridad: <priority>NUMERO</priority>
 # Prototipo: <prototype>LINK</prototype>
-# Casos de Uso: <usecases>NUMERO CASOS DE USO</usecases>
+# Casos de Uso: <usecases>NUMERO CASOS DE USO busca el texto podemos poner los ids 1,2,5,6</usecases>
 # </metadata>
+# 
 
 def getWorkingHours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
+    if data:
+        return data.group(1)
+    return ''
+
+def getWorkingHoursUsername(issue_body, username):
+    data = re.search("<hours" + username + ">(.*?)</hours" + username + ">", issue_body)
     if data:
         return data.group(1)
     return ''
@@ -223,6 +246,10 @@ def createFile():
         'Estado',
         'Fecha de Finalizacion',
         'Estimacion',
+        'JM',
+        'SC',
+        'GR',
+        'FR',
         'Horas Tabajadas',
         'Prototipo',
         'User Stories',
