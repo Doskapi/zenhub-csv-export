@@ -14,6 +14,6 @@ repo2: Doskapi/Tdp2-Node,125941349
 repo3: guillerecalde/tdp2-angular,127685368
 
 
-# output Filename
+# output Filename the extension is added automatically (.csv)
 [filename]
-FILENAME: output.csv
+FILENAME: output

@@ -231,7 +231,10 @@ def parseConfigs():
 
 
 def createFile():
+    CONFIG['FILENAME'] = CONFIG['FILENAME'] + "-" + datetime.now().strftime("%Y%m%d%H%M%S") + ".csv"
     CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
+    print "Saving data to: " + CONFIG['FILENAME']
+
     CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
     # define header of the csv
     CONFIG['FILEWRITER'].writerow((
