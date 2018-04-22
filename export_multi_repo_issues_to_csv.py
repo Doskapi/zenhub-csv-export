@@ -78,6 +78,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
         estado = zen_r.get('pipeline', dict()).get('name', "")
 
         assignee_hours = getAssignieHours(r_json)
+        total_hours = getTotalWorkingHours(assignee_hours)
 
         csvout.writerow([
                          getId(repo_name, r_json['number']),
@@ -95,10 +96,10 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
                          assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
                          assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
-                         getWorkingHours(r_json['body']),
+                         total_hours if total_hours != 0 else "",
                          getPrototype(r_json['body']),
                          getUseCase(r_json['body']),
-                         ])
+                        ])
     else:
         print 'You have skipped %s Pull Requests' % config['ISSUES']
 
@@ -152,8 +153,14 @@ def getAssignieHours(r_json):
         assigneeList[r_json['assignee']['login']] = userHours
     return assigneeList
 
-def getBody(issue_body):
-    return issue_body.partition('<metadata>')[0]
+
+def getTotalWorkingHours(total_hours_per_assignee):
+    sum = 0
+    for v in total_hours_per_assignee.values():
+        if v != '':
+            sum = sum + int(v)
+    return sum
+
 #
 # <metadata>
 # Horas trabajadas: <hours>NUMERO</hours>
@@ -163,6 +170,9 @@ def getBody(issue_body):
 # Casos de Uso: <usecases>NUMERO CASOS DE USO busca el texto podemos poner los ids 1,2,5,6</usecases>
 # </metadata>
 # 
+
+def getBody(issue_body):
+    return issue_body.partition('<metadata>')[0]
 
 def getWorkingHours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
