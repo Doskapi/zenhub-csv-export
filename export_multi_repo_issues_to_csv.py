@@ -65,7 +65,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
             is_epic = x['name']
 
     if is_epic != '':
-        print(repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic")
+        print(repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic - " + str(r_json['title']))
     else:
         print(repo_name + ' issue Number: ' + str(r_json['number']))
 
@@ -173,7 +173,8 @@ def getTotalWorkingHours(total_hours_per_assignee):
 #
 
 def getBody(issue_body):
-    return issue_body.partition("<metadata>")[0]
+    body =  issue_body.partition("<metadata>")[0]
+    return body
 
 def getWorkingHours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
