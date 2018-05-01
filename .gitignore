@@ -1,3 +1,4 @@
 config
 *.csv
 .idea/*
+GoogleApiCredentials/*
