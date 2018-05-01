@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 import csv
@@ -7,7 +7,7 @@ import requests
 import datetime
 from datetime import datetime
 import re
-import ConfigParser
+import configparser
 from ast import literal_eval as make_tuple
 
 
@@ -19,6 +19,7 @@ Supports Github API v3 and ZenHubs current working API.
 Derived from https://gist.github.com/Kebiled/7b035d7518fdfd50d07e2a285aff3977
 """
 
+global CONFIG
 CONFIG = {
     'CONFIGFILE': 'config',
     'PAYLOAD': '',
@@ -64,9 +65,9 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
             is_epic = x['name']
 
     if is_epic != '':
-        print repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic"
+        print(repo_name + ' issue Number: ' + str(r_json['number']) + " - Epic")
     else:
-        print repo_name + ' issue Number: ' + str(r_json['number'])
+        print(repo_name + ' issue Number: ' + str(r_json['number']))
 
     zenhub_issue_url = 'https://api.zenhub.io/p1/repositories/' + \
         str(repo_ID) + '/issues/' + str(r_json['number']) + '?access_token='  +  config['ACCESS_TOKEN_ZENHUB']
@@ -84,7 +85,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          getId(repo_name, r_json['number']),
                          getRepoName(repo_name),
                          r_json['title'].encode('utf-8'),
-                         getBody(r_json['body'].encode('utf-8')),
+                         getBody(r_json['body']),
                          is_epic,
                          labels[:-1],
                          r_json['milestone']['title'] if r_json['milestone'] else "",
@@ -101,7 +102,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          getUseCase(r_json['body']),
                         ])
     else:
-        print 'You have skipped %s Pull Requests' % config['ISSUES']
+        print('You have skipped %s Pull Requests' % config['ISSUES'])
 
 
 def write_all_issues(r_json, csvout, repo_name, repo_ID, config):
@@ -169,10 +170,10 @@ def getTotalWorkingHours(total_hours_per_assignee):
 # Prototipo: <prototype>LINK</prototype>
 # Casos de Uso: <usecases>NUMERO CASOS DE USO busca el texto podemos poner los ids 1,2,5,6</usecases>
 # </metadata>
-# 
+#
 
 def getBody(issue_body):
-    return issue_body.partition('<metadata>')[0]
+    return issue_body.partition("<metadata>")[0]
 
 def getWorkingHours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
@@ -214,11 +215,11 @@ def get_issues(repo_name, repo_zenhub_id, epicsIds, config):
         r_epic = requests.get(epic_issue_url, auth=config['AUTH_TOKEN_GITHUB'])
         if not r_epic.status_code == 200:
             raise Exception(r_epic.status_code)
-        # print(json.dumps(r_epic.json(), indent=2))
+        # print(json.dumps(r_epic.json(), indent=2)))
         write_issues(r_epic.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
 
         related_issues = get_epic_related_ids(repo_zenhub_id, epic, config)
-        # print(json.dumps(r_epic.json(), indent=2))
+        # print(json.dumps(r_epic.json(), indent=2)))
 
         for issue in related_issues:
             issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(issue)
@@ -229,7 +230,7 @@ def get_issues(repo_name, repo_zenhub_id, epicsIds, config):
 
 
 def parseConfigs():
-    configParser = ConfigParser.ConfigParser()
+    configParser = configparser.ConfigParser()
     configParser.readfp(open(CONFIG['CONFIGFILE']))
     CONFIG['AUTH_TOKEN_GITHUB'] = ('token', configParser.get('apiTokens', 'AUTH_TOKEN_GITHUB'))
     CONFIG['ACCESS_TOKEN_ZENHUB'] = configParser.get('apiTokens', 'ACCESS_TOKEN_ZENHUB')
@@ -242,31 +243,15 @@ def parseConfigs():
 
 def createFile():
     CONFIG['FILENAME'] = CONFIG['FILENAME'] + "-" + datetime.now().strftime("%Y%m%d%H%M%S") + ".csv"
-    CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'wb')
-    print "Saving data to: " + CONFIG['FILENAME']
+    CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'w', encoding="utf8")
+    print("Saving data to: " + CONFIG['FILENAME'])
 
     CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
-    # define header of the csv
-    CONFIG['FILEWRITER'].writerow((
-        'Id',
-        'Categoria',
-        'Funcionalidad',
-        'Descripcion',
-        'Epic?',
-        'Labels',
-        'Iteracion',
-        'Prioridad',
-        'Estado',
-        'Fecha de Finalizacion',
-        'Estimacion',
-        'JM',
-        'SC',
-        'GR',
-        'FR',
-        'Horas Tabajadas',
-        'Prototipo',
-        'User Stories',
-        ))
+    #
+    headers = ['Id', 'Categoria', 'Funcionalidad', 'Descripcion', 'Epic?', 'Labels', 'Iteracion', 'Prioridad', 'Estado', 'Fecha de Finalizacion', 'Estimacion', 'JM', 'SC', 'GR', 'FR', 'Horas Tabajadas', 'Prototipo', 'User Stories']
+    #define header of the csv
+    #
+    CONFIG['FILEWRITER'].writerow(headers)
 
 
 def closeFile():
