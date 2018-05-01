@@ -84,11 +84,11 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
         csvout.writerow([
                          getId(repo_name, r_json['number']),
                          getRepoName(repo_name),
-                         r_json['title'].encode('utf-8'),
+                         str(r_json['title']),
                          getBody(r_json['body']),
                          is_epic,
                          labels[:-1],
-                         r_json['milestone']['title'] if r_json['milestone'] else "",
+                         str(r_json['milestone']['title']) if r_json['milestone'] else "",
                          getPriority(r_json['body']),
                          estado,
                          getDate(r_json['closed_at']),
@@ -174,7 +174,7 @@ def getTotalWorkingHours(total_hours_per_assignee):
 
 def getBody(issue_body):
     body =  issue_body.partition("<metadata>")[0]
-    return body
+    return str(body)
 
 def getWorkingHours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
