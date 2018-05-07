@@ -4,6 +4,7 @@
 import csv
 import json
 import requests
+import pprint
 import datetime
 from datetime import datetime
 import re
@@ -50,7 +51,7 @@ def get_epic_related_ids(repo_ID, epic_ID, config):
     zen_r = requests.get(zenhub_issue_url).json()
     ids = []
     for related_issue in zen_r["issues"]:
-        if str(related_issue["repo_id"]) == str(repo_ID):
+        if str(related_issue["repo_id"]) == str(repo_ID) and not related_issue["is_epic"]:
             ids.append(related_issue["issue_number"])
     return ids
 
@@ -210,7 +211,11 @@ def getUseCase(issue_body):
     return ''
 
 
-def get_issues(repo_name, repo_zenhub_id, epicsIds, config):
+def get_issues(repo_name, repo_zenhub_id, config):
+    epicsIds = get_epic_ids(repo_zenhub_id, CONFIG)
+    print("\nEpics \n")
+    pprint.pprint(epicsIds)
+    print("\n")
     for epic in epicsIds:
         epic_issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(epic)
         r_epic = requests.get(epic_issue_url, auth=config['AUTH_TOKEN_GITHUB'])
@@ -263,7 +268,10 @@ if __name__ == '__main__':
     parseConfigs()
     createFile()
     for repo_data in CONFIG['REPO_LIST']:
-        epicIds = get_epic_ids(repo_data[1], CONFIG)
-        get_issues(repo_data[0], repo_data[1], epicIds, CONFIG)
+        get_issues(repo_data[0], repo_data[1], CONFIG)
     closeFile()
+
+    print("\n====================================")
+    print("\nFinish\n\nSaving data to: " + CONFIG['FILENAME'])
+    print("open " + CONFIG['FILENAME'])
 
