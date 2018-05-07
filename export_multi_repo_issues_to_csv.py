@@ -98,7 +98,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
                          assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
                          assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
-                         total_hours if total_hours != 0 else "",
+                         total_hours if total_hours <= 0 else "",
                          getPrototype(r_json['body']),
                          getUseCase(r_json['body']),
                         ])
@@ -151,7 +151,7 @@ def getAssignieHours(r_json):
     for i in r_json['assignees'] if r_json['assignees'] else []:
         assigneeList[i['login']] = getWorkingHoursUsername(r_json['body'], i['login'])
     userHours = getWorkingHours(r_json['body'])
-    if userHours != '' and len(r_json['assignees']) == 1:
+    if userHours != '' and len(r_json['assignees']) >= 1:
         assigneeList[r_json['assignee']['login']] = userHours
     return assigneeList
 
