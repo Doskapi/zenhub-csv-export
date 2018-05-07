@@ -98,7 +98,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
                          assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
                          assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
-                         total_hours if total_hours <= 0 else "",
+                         total_hours if is_epic == '' else "",
                          getPrototype(r_json['body']),
                          getUseCase(r_json['body']),
                         ])
