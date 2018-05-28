@@ -82,6 +82,18 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
         assignee_hours = getAssignieHours(r_json)
         total_hours = getTotalWorkingHours(assignee_hours)
 
+        isAssigned = True
+        for v in assignee_hours.values():
+            if v != '':
+                isAssigned = False
+
+        if (is_epic == '' and total_hours == 0 and (len(assignee_hours) == 0) or isAssigned):
+            workingHours = ''
+        elif (is_epic == ''):
+            workingHours = total_hours
+        else:
+            workingHours = ''
+
         csvout.writerow([
                          getId(repo_name, r_json['number']),
                          getRepoName(repo_name),
@@ -98,7 +110,7 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
                          assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
                          assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
                          assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
-                         total_hours if is_epic == '' else "",
+                         workingHours,
                          getPrototype(r_json['body']),
                          getUseCase(r_json['body']),
                         ])
