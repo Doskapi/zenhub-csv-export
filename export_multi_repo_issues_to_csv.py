@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import argparse
 import csv
 import json
 import requests
@@ -31,8 +32,20 @@ CONFIG = {
     # https://github.com/ZenHubIO/API#authentication
     'ACCESS_TOKEN_ZENHUB': '?access_token=<Zenhub TOKEN>',
     'ISSUES': 0,
-    'FILENAME': 'output.csv'
+    'FILENAME': 'output.csv',
+    'SPRINT': ''
 }
+
+
+parser = argparse.ArgumentParser(
+    description='Export Github and Zenhub issues')
+parser.add_argument(
+    "-s",
+    "--sprint",
+    metavar='sprint',
+    help='sprint number to export',
+    default=-1,
+    type=int)
 
 
 def get_epic_ids(repo_ID, config):
@@ -79,8 +92,8 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
         estimacion = zen_r.get('estimate', dict()).get('value', "")
         estado = zen_r.get('pipeline', dict()).get('name', "")
 
-        assignee_hours = getAssignieHours(r_json)
-        total_hours = getTotalWorkingHours(assignee_hours)
+        assignee_hours = get_assignie_hours(r_json)
+        total_hours = get_total_working_hours(assignee_hours)
 
         isAssigned = True
         for v in assignee_hours.values():
@@ -96,23 +109,23 @@ def write_issue(r_json, csvout, repo_name, repo_ID, config):
 
         csvout.writerow([
                          getId(repo_name, r_json['number']),
-                         getRepoName(repo_name),
+                         get_repo_name(repo_name),
                          str(r_json['title']),
-                         getBody(r_json['body']),
+                         get_body(r_json['body']),
                          is_epic,
                          labels[:-1],
                          str(r_json['milestone']['title']) if r_json['milestone'] else "",
-                         getPriority(r_json['body']),
+                         get_priority(r_json['body']),
                          estado,
-                         getDate(r_json['closed_at']),
+                         get_datee(r_json['closed_at']),
                          estimacion,
                          assignee_hours['juanmafc'] if 'juanmafc' in assignee_hours else "",
                          assignee_hours['Doskapi'] if 'Doskapi' in assignee_hours else "",
                          assignee_hours['guillerecalde'] if 'guillerecalde' in assignee_hours else "",
                          assignee_hours['florrup'] if 'florrup' in assignee_hours else "",
                          workingHours,
-                         getPrototype(r_json['body']),
-                         getUseCase(r_json['body']),
+                         get_prototype(r_json['body']),
+                         get_use_case(r_json['body']),
                         ])
     else:
         print('You have skipped %s Pull Requests' % config['ISSUES'])
@@ -130,18 +143,20 @@ def write_issues(r_json, csvout, repo_name, repo_ID, config):
         write_issue(r_json, csvout, repo_name, repo_ID, config)
 
 
-def getRepoName(repo):
+def get_repo_name(repo):
     return {
         'Doskapi/Tdp2-Android': 'Android',
         'Doskapi/Tdp2-Node': 'NodeJs',
         'guillerecalde/tdp2-angular': 'Backoffice',
     }.get(repo, '')
 
+
 def get_assignees_concatenated(assignees):
     sAssigneeList = ''
     for i in assignees if assignees else []:
         sAssigneeList += i['login'] + ','
     return sAssigneeList
+
 
 def getId(repo, issue_id):
     return {
@@ -151,24 +166,25 @@ def getId(repo, issue_id):
     }.get(repo, '') + str(issue_id)
 
 
-def getDate(date):
+def get_datee(date):
     if date:
         # format: 2018-04-16T23:33:47Z
         d = datetime.strptime(date[:-1], '%Y-%m-%dT%H:%M:%S')
         return d.strftime('%Y-%m-%d')
     return ''
 
-def getAssignieHours(r_json):
+
+def get_assignie_hours(r_json):
     assigneeList = {}
     for i in r_json['assignees'] if r_json['assignees'] else []:
-        assigneeList[i['login']] = getWorkingHoursUsername(r_json['body'], i['login'])
-    userHours = getWorkingHours(r_json['body'])
+        assigneeList[i['login']] = get_working_hours_username(r_json['body'], i['login'])
+    userHours = get_working_hours(r_json['body'])
     if userHours != '' and len(r_json['assignees']) >= 1:
         assigneeList[r_json['assignee']['login']] = userHours
     return assigneeList
 
 
-def getTotalWorkingHours(total_hours_per_assignee):
+def get_total_working_hours(total_hours_per_assignee):
     sum = 0
     for v in total_hours_per_assignee.values():
         if v != '':
@@ -185,38 +201,40 @@ def getTotalWorkingHours(total_hours_per_assignee):
 # </metadata>
 #
 
-def getBody(issue_body):
+def get_body(issue_body):
     body =  issue_body.partition("<metadata>")[0]
     return str(body)
 
-def getWorkingHours(issue_body):
+
+def get_working_hours(issue_body):
     data = re.search("<hours>(.*?)</hours>", issue_body)
     if data:
         return data.group(1)
     return ''
 
-def getWorkingHoursUsername(issue_body, username):
+
+def get_working_hours_username(issue_body, username):
     data = re.search("<hours" + username + ">(.*?)</hours" + username + ">", issue_body)
     if data:
         return data.group(1)
     return ''
 
 
-def getPriority(issue_body):
+def get_priority(issue_body):
     data = re.search("<priority>(.*?)</priority>", issue_body)
     if data:
         return data.group(1)
     return ''
 
 
-def getPrototype(issue_body):
+def get_prototype(issue_body):
     data = re.search("<prototype>(.*?)</prototype>", issue_body)
     if data:
         return data.group(1)
     return ''
 
 
-def getUseCase(issue_body):
+def get_use_case(issue_body):
     data = re.search("<usecases>(.*?)</usecases>", issue_body)
     if data:
         return data.group(1)
@@ -226,28 +244,34 @@ def getUseCase(issue_body):
 def get_issues(repo_name, repo_zenhub_id, config):
     epicsIds = get_epic_ids(repo_zenhub_id, CONFIG)
     print("\nEpics \n")
-    pprint.pprint(epicsIds)
+    print(epicsIds)
     print("\n")
     for epic in epicsIds:
         epic_issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(epic)
         r_epic = requests.get(epic_issue_url, auth=config['AUTH_TOKEN_GITHUB'])
         if not r_epic.status_code == 200:
             raise Exception(r_epic.status_code)
-        # print(json.dumps(r_epic.json(), indent=2)))
-        write_issues(r_epic.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
+
+        # if sprint flag is used
+        # print(getId(repo_name, r_epic.json()['number']), r_epic.json()['milestone']['title'])
+        if (r_epic.json()['milestone'] is None) or (CONFIG['SPRINT']!= '' and str(r_epic.json()['milestone']['title']) != CONFIG['SPRINT']):
+            continue
+
+        # print("EPIC", json.dumps(r_epic.json(), indent=2))
+        write_issues(r_epic.json(), CONFIG['FILEWRITER'], repo_name, repo_zenhub_id, config)
 
         related_issues = get_epic_related_ids(repo_zenhub_id, epic, config)
-        # print(json.dumps(r_epic.json(), indent=2)))
+        # print(json.dumps(r_epic.json(), indent=2))
 
         for issue in related_issues:
             issue_url = 'https://api.github.com/repos/' + repo_name + '/issues/' + str(issue)
             r_issue = requests.get(issue_url, auth=config['AUTH_TOKEN_GITHUB'])
             if not r_issue.status_code == 200:
                 raise Exception(r_issue.status_code)
-            write_issues(r_issue.json(), config['FILEWRITER'], repo_name, repo_zenhub_id, config)
+            write_issues(r_issue.json(), CONFIG['FILEWRITER'], repo_name, repo_zenhub_id, config)
 
 
-def parseConfigs():
+def parse_configs():
     configParser = configparser.ConfigParser()
     configParser.readfp(open(CONFIG['CONFIGFILE']))
     CONFIG['AUTH_TOKEN_GITHUB'] = ('token', configParser.get('apiTokens', 'AUTH_TOKEN_GITHUB'))
@@ -259,29 +283,32 @@ def parseConfigs():
         CONFIG['REPO_LIST'].append((x[1].split(',')[0],x[1].split(',')[1]))
 
 
-def createFile():
-    CONFIG['FILENAME'] = CONFIG['FILENAME'] + "-" + datetime.now().strftime("%Y%m%d%H%M%S") + ".csv"
+def create_file():
+    CONFIG['FILENAME'] = CONFIG['FILENAME'] + "-" + datetime.now().strftime("%Y%m%d%H%M%S") + CONFIG['SPRINT'].replace(' ','') + ".csv"
     CONFIG['OPENFILE'] = open(CONFIG['FILENAME'], 'w', encoding="utf8")
     print("Saving data to: " + CONFIG['FILENAME'])
-
     CONFIG['FILEWRITER'] = csv.writer(CONFIG['OPENFILE'])
-    #
     headers = ['Id', 'Categoria', 'Funcionalidad', 'Descripcion', 'Epic?', 'Labels', 'Iteracion', 'Prioridad', 'Estado', 'Fecha de Finalizacion', 'Estimacion', 'JM', 'SC', 'GR', 'FR', 'Horas Tabajadas', 'Prototipo', 'User Stories']
     #define header of the csv
-    #
     CONFIG['FILEWRITER'].writerow(headers)
 
 
-def closeFile():
+def close_file():
     CONFIG['OPENFILE'].close()
 
 
+def parse_arguments():
+    args = parser.parse_args()
+    if args.sprint > -1:
+        CONFIG['SPRINT'] = 'Sprint ' + str(args.sprint)
+
 if __name__ == '__main__':
-    parseConfigs()
-    createFile()
+    parse_configs()
+    parse_arguments()
+    create_file()
     for repo_data in CONFIG['REPO_LIST']:
         get_issues(repo_data[0], repo_data[1], CONFIG)
-    closeFile()
+    close_file()
 
     print("\n====================================")
     print("\nFinish\n\nSaving data to: " + CONFIG['FILENAME'])
